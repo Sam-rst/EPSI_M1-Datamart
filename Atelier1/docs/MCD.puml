@@ -1,0 +1,79 @@
+@startuml
+
+' !theme plain
+' hide circle
+' skinparam linetype ortho
+
+' --- ENTITIES ---
+
+entity "Teams" as teams {
+  *team_name : VARCHAR <<PK>>
+  --
+  country : VARCHAR
+  maps_played : BIGINT
+  maps_won : BIGINT
+  maps_win_rate : DOUBLE
+  atk_win_rate : DOUBLE
+  def_win_rate : DOUBLE
+  pistol_win_rate : DOUBLE
+}
+
+entity "Players" as players {
+  *player_name : VARCHAR <<PK>>
+  --
+  team_name : VARCHAR <<FK>>
+  country : VARCHAR
+  rounds_played : BIGINT
+  rating : DOUBLE
+  acs : DOUBLE
+  kd_ratio : DOUBLE
+  adr : DOUBLE
+  kpr : DOUBLE
+  dpr : DOUBLE
+  headshot_percent : DOUBLE
+  first_blood_success_rate : DOUBLE
+}
+
+entity "Agents_Meta" as agents {
+  *agent_name : VARCHAR <<PK>>
+  --
+  pick_rate : DOUBLE
+  total_rounds : BIGINT
+  avg_rating : DOUBLE
+  avg_acs : DOUBLE
+  avg_kd : DOUBLE
+  avg_adr : DOUBLE
+  win_rate_stats : DOUBLE
+}
+
+entity "Maps_Meta" as maps {
+  *map_name : VARCHAR <<PK>>
+  --
+  play_rate : DOUBLE
+  avg_spike_plant_time : VARCHAR
+  total_rounds : BIGINT
+  atk_win_rate : DOUBLE
+  def_win_rate : DOUBLE
+  pistol_round_stats : DOUBLE
+}
+
+' --- RELATIONSHIPS ---
+
+teams ||..o{ players : "possède"
+
+note right of teams
+  Table de référence des équipes.
+  Source: teams.csv
+end note
+
+note right of players
+  Statistiques individuelles.
+  La colonne 'team_name' fait référence à 'Teams'.
+  Source: players.csv
+end note
+
+note "Les tables Agents et Maps sont des tables\nde statistiques globales (Méta-jeu),\ndéconnectées des joueurs individuels\ndans ce dataset agrégé." as n1
+agents .. n1
+maps .. n1
+
+@enduml
