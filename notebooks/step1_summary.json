@@ -1,0 +1,32 @@
+{
+  "games_by_players.csv": {
+    "path": "..\\data\\raw\\games_by_players.csv",
+    "size_mb": 78.65,
+    "rows": 106795
+  },
+  "games_by_teams.csv": {
+    "path": "..\\data\\raw\\games_by_teams.csv",
+    "size_mb": 16.87,
+    "rows": 35594
+  },
+  "main.csv": {
+    "path": "..\\data\\raw\\main.csv",
+    "size_mb": 11.95,
+    "rows": 18740
+  },
+  "matches_by_players.csv": {
+    "path": "..\\data\\raw\\matches_by_players.csv",
+    "size_mb": 23.91,
+    "rows": 26176
+  },
+  "matches_by_teams.csv": {
+    "path": "..\\data\\raw\\matches_by_teams.csv",
+    "size_mb": 4.79,
+    "rows": 10594
+  },
+  "players_db.csv": {
+    "path": "..\\data\\raw\\players_db.csv",
+    "size_mb": 0.09,
+    "rows": 1218
+  }
+}

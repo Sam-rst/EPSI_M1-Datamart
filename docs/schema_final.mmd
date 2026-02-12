@@ -1,0 +1,103 @@
+erDiagram
+    %% ============================================================================
+    %% SCHÉMA ARCHITECTURE DIMENSIONS + STATS CENTRALES
+    %% ============================================================================
+
+    Country {
+        TEXT country_id PK
+        TEXT country_name
+    }
+
+    Region {
+        TEXT region_id PK
+        TEXT region_name
+    }
+
+    Player {
+        TEXT player_id PK
+        TEXT team_id FK
+        TEXT player_tag
+        TEXT player_name
+        TEXT country_id FK
+    }
+
+    Team {
+        TEXT team_id PK
+        TEXT team_name
+        TEXT region_id FK
+    }
+
+    Score {
+        TEXT score_id PK
+        TEXT team_id FK
+        TEXT match_id FK
+        DOUBLE score
+        BOOLEAN winner
+    }
+
+    Match {
+        TEXT match_id PK
+        TEXT map_id FK
+        TIMESTAMP match_date
+        TEXT match_format
+        TEXT event_id FK
+    }
+
+    Map {
+        TEXT map_id PK
+        TEXT map_name
+    }
+
+    Event {
+        TEXT event_id PK
+        TEXT event_name
+        TEXT region_id FK
+        TEXT event_tier
+    }
+
+    %% === TABLE CENTRALE DE STATS ===
+
+    StatMapping {
+        TEXT stat_id PK
+        TEXT entity_id "player_id/team_id/match_id"
+        TEXT entity_type "player/team/match"
+        TEXT game_id
+        TEXT type_id FK
+    }
+
+    Stat {
+        TEXT stat_id PK
+        TEXT type_id FK
+        DOUBLE stat_value
+    }
+
+    StatType {
+        TEXT type_id PK
+        TEXT name
+        TEXT category "CORE/BOOST/MOVEMENT..."
+    }
+
+    %% ============================================================================
+    %% RELATIONS
+    %% ============================================================================
+
+    Country ||--o{ Player : "country_id"
+    Region ||--o{ Team : "region_id"
+    Region ||--o{ Event : "region_id"
+    
+    Player ||--o{ Team : "team_id"
+    Team ||--o{ Score : "team_id"
+    Match ||--o{ Score : "match_id"
+    Match ||--o{ Map : "map_id"
+    Event ||--o{ Match : "event_id"
+
+    %% Relations vers StatMapping
+    StatMapping ||--o{ Stat : "stat_id"
+    
+    %% Relation Stat → StatType (IMPORTANT!)
+    Stat ||--o{ StatType : "type_id"
+
+    %% Relations multiples (entity_id peut être player, team, ou match)
+    Player ||--o{ StatMapping : "player_id (entity_id)"
+    Team ||--o{ StatMapping : "team_id (entity_id)"
+    Match ||--o{ StatMapping : "match_id (entity_id)"
