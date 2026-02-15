@@ -13,6 +13,7 @@ Pipeline: `CSV (data/raw/) -> SQLAlchemy ORM + Alembic -> DuckDB (3NF) -> Star s
 ```bash
 # Setup
 uv sync                          # Install dependencies (uses uv package manager)
+cp .env.example .env             # Configure environment (LOAD_METHOD=orm|copy)
 
 # Full ETL pipeline (CLI)
 uv run python -m src.etl                 # Run entire pipeline (extract -> transform -> load)
@@ -41,6 +42,7 @@ jupyter notebook                 # Or open .ipynb files in VS Code
 - **Alembic** for database migrations (manual revisions, autogenerate incompatible with DuckDB)
 - **DuckDB** for storage and querying (in-process, no server, via duckdb-engine)
 - **pandas / matplotlib / seaborn** for data manipulation and visualization
+- **python-dotenv** for environment configuration (`.env`)
 - **Jupyter notebooks** for orchestration and presentation
 - No backend server - everything runs client-side or in notebooks
 
@@ -48,7 +50,7 @@ jupyter notebook                 # Or open .ipynb files in VS Code
 
 ```
 src/
-├── config.py                  # ROOT_DIR, DATA_DIR, RAW_DIR, PROCESSED_DIR, DB_PATH, DATABASE_URL
+├── config.py                  # ROOT_DIR, DATA_DIR, RAW_DIR, PROCESSED_DIR, DB_PATH, DATABASE_URL + load_dotenv()
 ├── database/
 │   ├── engine.py              # SQLAlchemy engine + SessionLocal
 │   └── models/
@@ -68,9 +70,9 @@ src/
     │   ├── core/              # referentials, entities, hierarchy, participation, stats, export
     │   ├── config/            # column mappings (89+ stat definitions), CSV loaders
     │   └── utils/             # cleaning (dedup, cast), mapping
-    └── load/                  # Processed CSVs -> DuckDB via ORM
-        ├── core/              # migrate (alembic), truncate, insert (chunked bulk)
-        ├── config/            # table order (FK-aware), chunk size
+    └── load/                  # Processed CSVs -> DuckDB (ORM or native COPY)
+        ├── core/              # migrate (alembic), truncate, insert (ORM), copy (native DuckDB)
+        ├── config/            # table order (FK-aware), chunk size, settings (LOAD_METHOD from .env)
         └── utils/             # CSV readers
 alembic/
 ├── env.py                     # Imports Base.metadata, registers DuckDB dialect
@@ -113,6 +115,8 @@ Key join columns: `game_id`, `match_id`, `player_id`, `team_id`. Colors are `blu
 - Database file: `data/rl.duckdb` (gitignored)
 - Raw data: `data/raw/` (gitignored)
 - Processed data: `data/processed/` (gitignored, 14 CSVs output by transform)
+- Environment config: `.env` (gitignored), `.env.example` (committed)
+- Load method: `LOAD_METHOD=orm` (ORM bulk insert) or `LOAD_METHOD=copy` (DuckDB native read_csv, ~20x faster)
 
 ## Relational Model (Workshop 1) — 14 Tables
 

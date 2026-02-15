@@ -1,6 +1,7 @@
 """Orchestrate the full load: migrate → truncate → insert into DuckDB."""
 
-from src.etl.load.core import apply_migrations, insert_all, truncate_all
+from src.etl.load.config import LOAD_METHOD
+from src.etl.load.core import apply_migrations, copy_all, insert_all, truncate_all
 
 
 def run() -> dict[str, int]:
@@ -18,8 +19,12 @@ def run() -> dict[str, int]:
     print(f"  {len(truncated)} tables videes.\n")
 
     # 3. Insert
-    print("--- Insertion via ORM ---")
-    counts = insert_all()
+    if LOAD_METHOD == "copy":
+        print("--- Insertion via COPY natif DuckDB ---")
+        counts = copy_all()
+    else:
+        print("--- Insertion via ORM ---")
+        counts = insert_all()
 
     total = sum(counts.values())
     print(f"\n=== Chargement termine : {total:,} lignes dans {len(counts)} tables ===")

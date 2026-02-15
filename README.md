@@ -39,6 +39,7 @@ Architecture serverless, sans backend, conforme aux contraintes de l'atelier.
 | ORM | SQLAlchemy 2.0 (DeclarativeBase, mapped_column) |
 | Migrations | Alembic |
 | Base de donnees | DuckDB (in-process, via duckdb-engine) |
+| Configuration | python-dotenv (`.env`) |
 | Data | pandas |
 | Visualisation | matplotlib, seaborn |
 | Presentation | Jupyter Notebook |
@@ -77,10 +78,12 @@ Architecture serverless, sans backend, conforme aux contraintes de l'atelier.
 │       │   │                       # participation, stats (EAV unpivot), export
 │       │   ├── config/             # columns mappings, loading functions
 │       │   └── utils/              # cleaning, mapping
-│       └── load/                   # Insertion DuckDB via ORM
-│           ├── core/               # migrate, truncate, insert (chunked)
-│           ├── config/             # table order (FK-aware), chunk size
+│       └── load/                   # Insertion DuckDB (ORM ou COPY natif)
+│           ├── core/               # migrate, truncate, insert (ORM), copy (natif DuckDB)
+│           ├── config/             # table order (FK-aware), chunk size, settings (.env)
 │           └── utils/              # CSV readers
+├── .env                           # Configuration locale (gitignore)
+├── .env.example                   # Template de configuration
 ├── alembic.ini
 ├── pyproject.toml
 └── uv.lock
@@ -126,9 +129,19 @@ data/rl.duckdb (14 tables, schema 3NF complet)
 |-------|--------|-------------|
 | **Extract** | `src/etl/extract/` | Telechargement Kaggle via kagglehub, copie vers `data/raw/`, validation des PK et nulls |
 | **Transform** | `src/etl/transform/` | Nettoyage, normalisation, deduplication, unpivot EAV (89+ types de stats), export CSV |
-| **Load** | `src/etl/load/` | Migration Alembic, truncate (idempotent), insertion ORM avec chunking (100k lignes/batch) |
+| **Load** | `src/etl/load/` | Migration Alembic, truncate (idempotent), insertion ORM ou COPY natif DuckDB (configurable via `.env`) |
 
 Chaque module est executable via notebook (`01`, `02`, `03`) ou en CLI (`python -m src.etl.extract`, etc.).
+
+### Configuration du chargement
+
+Le mode d'insertion est configurable dans `.env` :
+
+```bash
+# .env
+LOAD_METHOD=orm   # SQLAlchemy ORM bulk insert (safe, ~20 min pour 10.5M lignes)
+LOAD_METHOD=copy  # DuckDB native read_csv (rapide, ~1 min pour 10.5M lignes)
+```
 
 ## Installation
 
@@ -149,7 +162,10 @@ cd EPSI_M1-Datamart
 # 2. Installer les dependances
 uv sync
 
-# 3. Pipeline complet (via notebooks ou CLI)
+# 3. Configurer l'environnement
+cp .env.example .env              # Puis editer .env si besoin
+
+# 4. Pipeline complet (via notebooks ou CLI)
 # Option A : ouvrir les notebooks dans l'ordre (01 -> 02 -> 03)
 jupyter notebook
 
@@ -183,7 +199,7 @@ uv run alembic downgrade -1           # Rollback derniere migration
 | Modele relationnel | Fait | 14 tables 3NF, ERD Mermaid + DBML + PNG + SVG |
 | ETL Extract | Fait | Telechargement Kaggle, validation PK/nulls, inventaire |
 | ETL Transform | Fait | Normalisation 14 tables, unpivot EAV (89+ stat types), export CSV |
-| ETL Load | Fait | Migration Alembic, insertion ORM chunked, verification SQL |
+| ETL Load | Fait | Migration Alembic, insertion ORM ou COPY natif DuckDB (`.env`), verification SQL |
 | Notebooks | Fait | 01_extract, 02_transform, 03_load — pipeline complet |
 
 ### Atelier 2 — Modele dimensionnel
