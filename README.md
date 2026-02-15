@@ -57,16 +57,19 @@ Architecture serverless, sans backend, conforme aux contraintes de l'atelier.
 │   └── rl.duckdb                   # Base DuckDB (gitignore)
 ├── docs/
 │   ├── ateliers/                   # Consignes et resumes par atelier
-│   └── database/schemas/           # ERD et schemas (mmd, dbml, png, svg)
+│   └── database/schemas/
+│       ├── ERD/                    # Schema 3NF (mmd, dbml, png, svg)
+│       └── star/                   # Schema en etoile (mmd, dbml, png)
 ├── notebooks/
 │   ├── 01_raw_extraction.ipynb     # Extraction du dataset Kaggle
 │   ├── 02_transform.ipynb          # Transformation CSV -> 14 tables 3NF
-│   └── 03_load.ipynb               # Chargement dans DuckDB via ORM
+│   ├── 03_load.ipynb               # Chargement dans DuckDB via ORM
+│   └── 04_star_schema.ipynb        # Star schema (6 dims + 1 fact)
 ├── src/
 │   ├── config.py                   # ROOT_DIR, DATA_DIR, RAW_DIR, PROCESSED_DIR, DB_PATH
 │   ├── database/
 │   │   ├── engine.py               # SQLAlchemy engine + SessionLocal
-│   │   └── models/                 # 14 modeles ORM (5 modules)
+│   │   └── models/                 # 21 modeles ORM (6 modules : 3NF + star)
 │   └── etl/
 │       ├── main.py                 # Pipeline complet (extract -> transform -> load)
 │       ├── extract/                # Telechargement Kaggle + validation
@@ -78,10 +81,14 @@ Architecture serverless, sans backend, conforme aux contraintes de l'atelier.
 │       │   │                       # participation, stats (EAV unpivot), export
 │       │   ├── config/             # columns mappings, loading functions
 │       │   └── utils/              # cleaning, mapping
-│       └── load/                   # Insertion DuckDB (ORM ou COPY natif)
-│           ├── core/               # migrate, truncate, insert (ORM), copy (natif DuckDB)
-│           ├── config/             # table order (FK-aware), chunk size, settings (.env)
-│           └── utils/              # CSV readers
+│       ├── load/                   # Insertion DuckDB (ORM ou COPY natif)
+│       │   ├── core/               # migrate, truncate, insert (ORM), copy (natif DuckDB)
+│       │   ├── config/             # table order (FK-aware), chunk size, settings (.env)
+│       │   └── utils/              # CSV readers
+│       └── star/                   # Star schema (3NF -> etoile)
+│           ├── core/               # dimensions, fact (pivot EAV), truncate
+│           ├── config/             # stat columns, table order
+│           └── utils/              # SQL pivot helper
 ├── .env                           # Configuration locale (gitignore)
 ├── .env.example                   # Template de configuration
 ├── alembic.ini
@@ -105,15 +112,38 @@ Le schema normalise comprend **14 tables** reparties en 5 groupes :
 
 ### ERD
 
-![Schema 3NF](docs/database/schemas/schema_3nf.png)
+![Schema 3NF](docs/database/schemas/ERD/schema_3nf.png)
 
-- [Source Mermaid](docs/database/schemas/schema_3nf.mmd)
-- [DBML (dbdiagram.io)](docs/database/schemas/schema_3nf.dbml)
-- [SVG](docs/database/schemas/schema_3nf.svg)
+- [Source Mermaid](docs/database/schemas/ERD/schema_3nf.mmd)
+- [DBML (dbdiagram.io)](docs/database/schemas/ERD/schema_3nf.dbml)
+- [SVG](docs/database/schemas/ERD/schema_3nf.svg)
+
+## Schema en etoile (Star Schema) — Atelier 2
+
+Le schema dimensionnel comprend **6 dimensions** et **1 table de faits** :
+
+![Schema Star](docs/database/schemas/star/schema_star.png)
+
+| Table | Source 3NF | Lignes |
+|-------|-----------|--------|
+| `dim_date` | game.game_date (DISTINCT) | ~110 |
+| `dim_player` | player + country | ~1,200 |
+| `dim_team` | team + region | ~580 |
+| `dim_map` | map | ~28 |
+| `dim_car` | car | ~74 |
+| `dim_event` | match + stage + event + region (denormalise) | ~5,300 |
+| `fact_player_game` | game_player + game + stat (EAV pivot) | ~106,800 |
+
+La table de faits contient **84 mesures** pivotees depuis le modele EAV (CORE, BOOST, MOVEMENT, POSITIONING, DEMO, ADVANCED).
+
+### ERD Star
+
+- [Source Mermaid](docs/database/schemas/star/schema_star.mmd)
+- [DBML (dbdiagram.io)](docs/database/schemas/star/schema_star.dbml)
 
 ## Pipeline ETL
 
-Le pipeline complet s'execute en 3 etapes, orchestrees par les notebooks ou en CLI :
+Le pipeline complet s'execute en 4 etapes, orchestrees par les notebooks ou en CLI :
 
 ```
 Kaggle (dylanmonfret/rlcs-202122)
@@ -123,6 +153,8 @@ data/raw/ (6 CSVs bruts, ~199k lignes)
 data/processed/ (14 CSVs normalises 3NF, ~1.3 Go dont stat.csv)
         | [load]
 data/rl.duckdb (14 tables, schema 3NF complet)
+        | [star]
+data/rl.duckdb (+ 7 tables star : 6 dims + 1 fact)
 ```
 
 | Etape | Module | Description |
@@ -130,8 +162,9 @@ data/rl.duckdb (14 tables, schema 3NF complet)
 | **Extract** | `src/etl/extract/` | Telechargement Kaggle via kagglehub, copie vers `data/raw/`, validation des PK et nulls |
 | **Transform** | `src/etl/transform/` | Nettoyage, normalisation, deduplication, unpivot EAV (89+ types de stats), export CSV |
 | **Load** | `src/etl/load/` | Migration Alembic, truncate (idempotent), insertion ORM ou COPY natif DuckDB (configurable via `.env`) |
+| **Star** | `src/etl/star/` | Migration Alembic, truncate star, peuplement 6 dimensions + 1 fact (pivot EAV via SQL) |
 
-Chaque module est executable via notebook (`01`, `02`, `03`) ou en CLI (`python -m src.etl.extract`, etc.).
+Chaque module est executable via notebook (`01`, `02`, `03`, `04`) ou en CLI (`python -m src.etl.extract`, etc.).
 
 ### Configuration du chargement
 
@@ -166,7 +199,7 @@ uv sync
 cp .env.example .env              # Puis editer .env si besoin
 
 # 4. Pipeline complet (via notebooks ou CLI)
-# Option A : ouvrir les notebooks dans l'ordre (01 -> 02 -> 03)
+# Option A : ouvrir les notebooks dans l'ordre (01 -> 02 -> 03 -> 04)
 jupyter notebook
 
 # Option B : CLI (pipeline complet)
@@ -176,6 +209,7 @@ uv run python -m src.etl              # Tout en une commande
 uv run python -m src.etl.extract     # Telecharger les CSVs bruts
 uv run python -m src.etl.transform   # Normaliser en 14 tables
 uv run python -m src.etl.load        # Charger dans DuckDB
+uv run python -m src.etl.star        # Construire le star schema
 ```
 
 ### Commandes utiles
@@ -206,9 +240,13 @@ uv run alembic downgrade -1           # Rollback derniere migration
 
 | Etape | Statut | Detail |
 |-------|--------|--------|
-| Schema en etoile | A faire | fact_game_stats + dimensions |
-| Alimentation des dimensions | A faire | Script Python/SQL |
-| Remplissage des faits | A faire | Script Python/SQL |
+| Schema en etoile | Fait | 6 dims + fact_player_game (84 mesures, ~106k lignes) |
+| Alimentation des dimensions | Fait | SQL INSERT INTO ... SELECT FROM 3NF (6 dims, ~7.3k lignes) |
+| Remplissage des faits | Fait | SQL pivot EAV → colonnes via MAX(CASE WHEN) |
+| Migration Alembic | Fait | 1 migration manuelle (7 tables) |
+| Module ETL | Fait | `src/etl/star/` (core, config, utils, CLI) |
+| Notebook | Fait | 04_star_schema.ipynb (verif FK, spot-check, requetes BI) |
+| ERD Mermaid | Fait | docs/database/schemas/star/schema_star.mmd |
 
 ### Atelier 3 — Visualisation
 

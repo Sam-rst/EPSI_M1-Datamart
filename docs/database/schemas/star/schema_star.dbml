@@ -1,0 +1,226 @@
+// ══════════════════════════════════════
+// Rocket League Esports — Schema en etoile (Star Schema)
+// Grain : 1 joueur x 1 game (~106k lignes)
+// 84 mesures pivotees depuis le modele EAV (CORE, BOOST, MOVEMENT, POSITIONING, DEMO, ADVANCED)
+// Format : DBML (dbdiagram.io)
+// ══════════════════════════════════════
+
+// ─── DIMENSIONS ────────────────────────
+
+Table dim_date {
+  date_key INTEGER [pk, note: 'Surrogate key (ROW_NUMBER)']
+  full_date VARCHAR [unique, not null]
+  year INTEGER
+  month INTEGER
+  day INTEGER
+  day_of_week INTEGER
+  day_name VARCHAR
+  month_name VARCHAR
+  quarter INTEGER
+  is_weekend BOOLEAN
+  week_of_year INTEGER
+
+  Note: 'Calendrier des dates de game (DISTINCT game.game_date)'
+}
+
+Table dim_player {
+  player_key INTEGER [pk, note: 'Surrogate key (ROW_NUMBER)']
+  player_id VARCHAR [unique, not null]
+  player_tag VARCHAR
+  player_name VARCHAR
+  country_id VARCHAR
+  country_name VARCHAR
+
+  Note: 'Denormalise player + country'
+}
+
+Table dim_team {
+  team_key INTEGER [pk, note: 'Surrogate key (ROW_NUMBER)']
+  team_id VARCHAR [unique, not null]
+  team_name VARCHAR
+  region_id VARCHAR
+  region_name VARCHAR
+
+  Note: 'Denormalise team + region'
+}
+
+Table dim_map {
+  map_key INTEGER [pk, note: 'Surrogate key (ROW_NUMBER)']
+  map_id VARCHAR [unique, not null]
+  map_name VARCHAR
+}
+
+Table dim_car {
+  car_key INTEGER [pk, note: 'Surrogate key (ROW_NUMBER)']
+  car_id VARCHAR [unique, not null]
+  car_name VARCHAR
+}
+
+Table dim_event {
+  event_key INTEGER [pk, note: 'Surrogate key (ROW_NUMBER)']
+  match_id VARCHAR [unique, not null]
+  // -- Match
+  match_slug VARCHAR
+  match_number INTEGER
+  match_round VARCHAR
+  match_date VARCHAR
+  match_format VARCHAR
+  reverse_sweep_attempt BOOLEAN
+  reverse_sweep BOOLEAN
+  // -- Stage (denormalise)
+  stage_id VARCHAR
+  stage_name VARCHAR
+  stage_step INTEGER
+  is_lan BOOLEAN
+  is_qualifier BOOLEAN
+  location_venue VARCHAR
+  location_city VARCHAR
+  location_country VARCHAR
+  // -- Event (denormalise)
+  event_id VARCHAR
+  event_name VARCHAR
+  event_split VARCHAR
+  event_tier VARCHAR
+  event_phase VARCHAR
+  prize_money DOUBLE
+  // -- Event region (denormalise)
+  event_region_id VARCHAR
+  event_region_name VARCHAR
+
+  Note: 'Denormalise match + stage + event + region (25 colonnes)'
+}
+
+// ─── TABLE DE FAITS ────────────────────
+
+Table fact_player_game {
+  // -- Cle composite
+  game_id VARCHAR [pk]
+  player_id VARCHAR [pk]
+  // -- FK dimensions
+  player_key INTEGER [ref: > dim_player.player_key]
+  team_key INTEGER [ref: > dim_team.team_key]
+  map_key INTEGER [ref: > dim_map.map_key]
+  car_key INTEGER [ref: > dim_car.car_key]
+  date_key INTEGER [ref: > dim_date.date_key]
+  event_key INTEGER [ref: > dim_event.event_key]
+  // -- Dimension degeneree
+  match_id VARCHAR [note: 'Degenerate dimension']
+  // -- Contexte game
+  game_number INTEGER
+  game_duration DOUBLE
+  overtime BOOLEAN
+  winner BOOLEAN
+  color VARCHAR [note: 'blue / orange']
+  platform VARCHAR
+  // ── CORE (6) ──
+  core_shots DOUBLE
+  core_goals DOUBLE
+  core_saves DOUBLE
+  core_assists DOUBLE
+  core_score DOUBLE
+  core_shooting_percentage DOUBLE
+  // ── BOOST (28) ──
+  boost_bpm DOUBLE
+  boost_bcpm DOUBLE
+  boost_avg_amount DOUBLE
+  boost_amount_collected DOUBLE
+  boost_amount_stolen DOUBLE
+  boost_amount_collected_big DOUBLE
+  boost_amount_stolen_big DOUBLE
+  boost_amount_collected_small DOUBLE
+  boost_amount_stolen_small DOUBLE
+  boost_count_collected_big DOUBLE
+  boost_count_stolen_big DOUBLE
+  boost_count_collected_small DOUBLE
+  boost_count_stolen_small DOUBLE
+  boost_amount_overfill DOUBLE
+  boost_amount_overfill_stolen DOUBLE
+  boost_amount_used_while_supersonic DOUBLE
+  boost_time_zero_boost DOUBLE
+  boost_percent_zero_boost DOUBLE
+  boost_time_full_boost DOUBLE
+  boost_percent_full_boost DOUBLE
+  boost_time_boost_0_25 DOUBLE
+  boost_time_boost_25_50 DOUBLE
+  boost_time_boost_50_75 DOUBLE
+  boost_time_boost_75_100 DOUBLE
+  boost_percent_boost_0_25 DOUBLE
+  boost_percent_boost_25_50 DOUBLE
+  boost_percent_boost_50_75 DOUBLE
+  boost_percent_boost_75_100 DOUBLE
+  // ── MOVEMENT (18) ──
+  movement_avg_speed DOUBLE
+  movement_total_distance DOUBLE
+  movement_time_supersonic_speed DOUBLE
+  movement_time_boost_speed DOUBLE
+  movement_time_slow_speed DOUBLE
+  movement_time_ground DOUBLE
+  movement_time_low_air DOUBLE
+  movement_time_high_air DOUBLE
+  movement_time_powerslide DOUBLE
+  movement_count_powerslide DOUBLE
+  movement_avg_powerslide_duration DOUBLE
+  movement_avg_speed_percentage DOUBLE
+  movement_percent_slow_speed DOUBLE
+  movement_percent_boost_speed DOUBLE
+  movement_percent_supersonic_speed DOUBLE
+  movement_percent_ground DOUBLE
+  movement_percent_low_air DOUBLE
+  movement_percent_high_air DOUBLE
+  // ── POSITIONING (27) ──
+  positioning_avg_distance_to_ball DOUBLE
+  positioning_avg_distance_to_ball_possession DOUBLE
+  positioning_avg_distance_to_ball_no_possession DOUBLE
+  positioning_avg_distance_to_mates DOUBLE
+  positioning_time_defensive_third DOUBLE
+  positioning_time_neutral_third DOUBLE
+  positioning_time_offensive_third DOUBLE
+  positioning_time_defensive_half DOUBLE
+  positioning_time_offensive_half DOUBLE
+  positioning_time_behind_ball DOUBLE
+  positioning_time_in_front_ball DOUBLE
+  positioning_time_most_back DOUBLE
+  positioning_time_most_forward DOUBLE
+  positioning_goals_against_while_last_defender DOUBLE
+  positioning_time_closest_to_ball DOUBLE
+  positioning_time_farthest_from_ball DOUBLE
+  positioning_percent_defensive_third DOUBLE
+  positioning_percent_offensive_third DOUBLE
+  positioning_percent_neutral_third DOUBLE
+  positioning_percent_defensive_half DOUBLE
+  positioning_percent_offensive_half DOUBLE
+  positioning_percent_behind_ball DOUBLE
+  positioning_percent_in_front_ball DOUBLE
+  positioning_percent_most_back DOUBLE
+  positioning_percent_most_forward DOUBLE
+  positioning_percent_closest_to_ball DOUBLE
+  positioning_percent_farthest_from_ball DOUBLE
+  // ── DEMO (2) ──
+  demo_inflicted DOUBLE
+  demo_taken DOUBLE
+  // ── ADVANCED (3) ──
+  advanced_goal_participation DOUBLE
+  advanced_rating DOUBLE
+  advanced_mvp DOUBLE
+
+  Note: '''
+  Table de faits — grain : 1 joueur x 1 game (~106k lignes, ~99 colonnes).
+  84 mesures pivotees depuis le modele EAV via MAX(CASE WHEN st.stat_name = ... THEN s.value END).
+  6 FK vers les dimensions, 1 dimension degeneree (match_id), 6 colonnes de contexte game.
+  '''
+}
+
+// ─── TABLE GROUPS ──────────────────────
+
+TableGroup Dimensions {
+  dim_date
+  dim_player
+  dim_team
+  dim_map
+  dim_car
+  dim_event
+}
+
+TableGroup Faits {
+  fact_player_game
+}

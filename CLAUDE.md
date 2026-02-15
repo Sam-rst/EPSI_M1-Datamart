@@ -20,6 +20,7 @@ uv run python -m src.etl                 # Run entire pipeline (extract -> trans
 uv run python -m src.etl.extract         # Download Kaggle CSVs -> data/raw/
 uv run python -m src.etl.transform       # Normalize to 14 tables -> data/processed/
 uv run python -m src.etl.load            # Load into DuckDB -> data/rl.duckdb
+uv run python -m src.etl.star            # Build star schema (6 dims + 1 fact)
 
 # Migrations
 uv run alembic upgrade head      # Apply all migrations
@@ -59,7 +60,8 @@ src/
 │       ├── entities.py        # Player, Team
 │       ├── hierarchy.py       # Event, Stage, Match, Game
 │       ├── participation.py   # GamePlayer, GameTeam
-│       └── stats.py           # StatType, Stat (polymorphic EAV)
+│       ├── stats.py           # StatType, Stat (polymorphic EAV)
+│       └── star.py            # DimDate, DimPlayer, DimTeam, DimMap, DimCar, DimEvent, FactPlayerGame
 └── etl/
     ├── main.py                # Full pipeline orchestrator (extract -> transform -> load)
     ├── extract/               # Kaggle download + validation
@@ -70,24 +72,31 @@ src/
     │   ├── core/              # referentials, entities, hierarchy, participation, stats, export
     │   ├── config/            # column mappings (89+ stat definitions), CSV loaders
     │   └── utils/             # cleaning (dedup, cast), mapping
-    └── load/                  # Processed CSVs -> DuckDB (ORM or native COPY)
-        ├── core/              # migrate (alembic), truncate, insert (ORM), copy (native DuckDB)
-        ├── config/            # table order (FK-aware), chunk size, settings (LOAD_METHOD from .env)
-        └── utils/             # CSV readers
+    ├── load/                  # Processed CSVs -> DuckDB (ORM or native COPY)
+    │   ├── core/              # migrate (alembic), truncate, insert (ORM), copy (native DuckDB)
+    │   ├── config/            # table order (FK-aware), chunk size, settings (LOAD_METHOD from .env)
+    │   └── utils/             # CSV readers
+    └── star/                  # Star schema (3NF -> star)
+        ├── core/              # dimensions, fact (EAV pivot), truncate
+        ├── config/            # stat columns, table order
+        └── utils/             # SQL pivot helper
 alembic/
 ├── env.py                     # Imports Base.metadata, registers DuckDB dialect
-└── versions/                  # Migration files (1 initial: 14 tables)
+└── versions/                  # Migration files (2: initial 14 tables + star schema 7 tables)
 notebooks/
 ├── 01_raw_extraction.ipynb    # Extract: Kaggle download + validation
 ├── 02_transform.ipynb         # Transform: normalize to 14 3NF tables
-└── 03_load.ipynb              # Load: insert into DuckDB + SQL verification
+├── 03_load.ipynb              # Load: insert into DuckDB + SQL verification
+└── 04_star_schema.ipynb       # Star: 3NF -> star schema + verification + BI queries
 data/
 ├── raw/                       # 6 raw CSVs from Kaggle (gitignored)
 ├── processed/                 # 14 normalized CSVs (gitignored)
 └── rl.duckdb                  # DuckDB database (gitignored)
 docs/
 ├── ateliers/                  # Atelier PDFs + RESUME.md per workshop
-└── database/schemas/          # schema_3nf.mmd, .dbml, .png, .svg
+└── database/schemas/
+    ├── ERD/                   # 3NF schema (schema_3nf.mmd, .dbml, .png, .svg)
+    └── star/                  # Star schema (schema_star.mmd, .dbml, .png)
 ```
 
 ## Data Files (data/raw/)
@@ -129,9 +138,20 @@ Key join columns: `game_id`, `match_id`, `player_id`, `team_id`. Colors are `blu
 
 Stat uses polymorphic `entity_id` + `entity_type` (player/team) to link stats at game-level only. Match-level stats are derived via Game.match_id aggregation.
 
-## Star Schema (Workshop 2)
+## Star Schema (Workshop 2) — 7 Tables
 
-TODO — to be designed. Target: `fact_game_stats` + dimensions (dim_player, dim_team, dim_map, dim_time, dim_car).
+6 dimensions + 1 fact table. Grain: 1 player x 1 game (~106k rows).
+
+- **DimDate**: date_key PK, full_date, year/month/day, day_of_week, day_name, quarter, is_weekend
+- **DimPlayer**: player_key PK, player_id, player_tag, player_name, country_id/name (denorm)
+- **DimTeam**: team_key PK, team_id, team_name, region_id/name (denorm)
+- **DimMap**: map_key PK, map_id, map_name
+- **DimCar**: car_key PK, car_id, car_name
+- **DimEvent**: event_key PK, match_id + match/stage/event attrs denormalized (25 cols)
+- **FactPlayerGame**: (game_id, player_id) composite PK, 6 FK dims, game context, 84 stat measures
+
+Surrogate keys generated via `ROW_NUMBER()`. Stats pivoted from EAV via `MAX(CASE WHEN)`.
+CLI: `uv run python -m src.etl.star`
 
 ## KPIs (Workshop 3)
 

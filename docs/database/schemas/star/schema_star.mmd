@@ -1,0 +1,108 @@
+erDiagram
+    %% ══════════════════════════════════════
+    %% Schema en etoile — grain : 1 joueur × 1 game
+    %% ══════════════════════════════════════
+
+    dim_date {
+        INTEGER date_key PK
+        VARCHAR full_date UK
+        INTEGER year
+        INTEGER month
+        INTEGER day
+        INTEGER day_of_week
+        VARCHAR day_name
+        VARCHAR month_name
+        INTEGER quarter
+        BOOLEAN is_weekend
+        INTEGER week_of_year
+    }
+
+    dim_player {
+        INTEGER player_key PK
+        VARCHAR player_id UK
+        VARCHAR player_tag
+        VARCHAR player_name
+        VARCHAR country_id
+        VARCHAR country_name
+    }
+
+    dim_team {
+        INTEGER team_key PK
+        VARCHAR team_id UK
+        VARCHAR team_name
+        VARCHAR region_id
+        VARCHAR region_name
+    }
+
+    dim_map {
+        INTEGER map_key PK
+        VARCHAR map_id UK
+        VARCHAR map_name
+    }
+
+    dim_car {
+        INTEGER car_key PK
+        VARCHAR car_id UK
+        VARCHAR car_name
+    }
+
+    dim_event {
+        INTEGER event_key PK
+        VARCHAR match_id UK
+        VARCHAR match_slug
+        INTEGER match_number
+        VARCHAR match_round
+        VARCHAR match_date
+        VARCHAR match_format
+        BOOLEAN reverse_sweep_attempt
+        BOOLEAN reverse_sweep
+        VARCHAR stage_id
+        VARCHAR stage_name
+        INTEGER stage_step
+        BOOLEAN is_lan
+        BOOLEAN is_qualifier
+        VARCHAR location_venue
+        VARCHAR location_city
+        VARCHAR location_country
+        VARCHAR event_id
+        VARCHAR event_name
+        VARCHAR event_split
+        VARCHAR event_tier
+        VARCHAR event_phase
+        DOUBLE prize_money
+        VARCHAR event_region_id
+        VARCHAR event_region_name
+    }
+
+    fact_player_game {
+        VARCHAR game_id PK
+        VARCHAR player_id PK
+        INTEGER player_key FK
+        INTEGER team_key FK
+        INTEGER map_key FK
+        INTEGER car_key FK
+        INTEGER date_key FK
+        INTEGER event_key FK
+        VARCHAR match_id "degenerate dim"
+        INTEGER game_number
+        DOUBLE game_duration
+        BOOLEAN overtime
+        BOOLEAN winner
+        VARCHAR color
+        VARCHAR platform
+        DOUBLE core_shots "6 CORE stats"
+        DOUBLE core_goals
+        DOUBLE boost_bpm "28 BOOST stats"
+        DOUBLE movement_avg_speed "18 MOVEMENT stats"
+        DOUBLE positioning_avg_distance_to_ball "27 POSITIONING stats"
+        DOUBLE demo_inflicted "2 DEMO stats"
+        DOUBLE advanced_rating "3 ADVANCED stats"
+    }
+
+    %% Fact → Dimensions
+    dim_date ||--o{ fact_player_game : "date_key"
+    dim_player ||--o{ fact_player_game : "player_key"
+    dim_team ||--o{ fact_player_game : "team_key"
+    dim_map ||--o{ fact_player_game : "map_key"
+    dim_car ||--o{ fact_player_game : "car_key"
+    dim_event ||--o{ fact_player_game : "event_key"
