@@ -1,5 +1,0 @@
-duckdb
-pandas
-numpy
-jupyter
-ipywidgets
