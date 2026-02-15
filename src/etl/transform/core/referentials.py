@@ -10,7 +10,7 @@ def build_countries(df_players: pd.DataFrame) -> pd.DataFrame:
     df = df_players[["player_country"]].dropna(subset=["player_country"]).copy()
     df = df.rename(columns={"player_country": "country_id"})
     df = dedup(df, ["country_id"])
-    df["country_name"] = None
+    df["country_name"] = df["country_id"]
     return df[["country_id", "country_name"]]
 
 
@@ -28,7 +28,7 @@ def build_regions(
     # Normalize: strip + uppercase
     df["region_id"] = df["region_id"].str.strip().str.upper()
     df = dedup(df, ["region_id"])
-    df["region_name"] = None
+    df["region_name"] = df["region_id"]
     return df[["region_id", "region_name"]]
 
 

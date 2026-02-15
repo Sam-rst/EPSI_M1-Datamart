@@ -256,6 +256,6 @@ uv run alembic downgrade -1           # Rollback derniere migration
 |-------|--------|--------|
 | KPIs simples (3) | Fait | Taux d'overtime, score moyen/joueur, nombre total de games |
 | KPIs croises (4) | Fait | Win rate/voiture (barh), score/tier (bar), games/mois (line), goals map x couleur (heatmap) |
-| Filtres interactifs (2) | Fait | Dropdowns ipywidgets : event_tier, is_lan (LAN/Online) |
+| Filtres interactifs (2) | Fait | Dropdowns ipywidgets : event_tier, event_region_name (10 regions) |
 | Export CSV | Fait | Bouton ipywidgets → `data/exports/dashboard_export.csv` |
 | Notebook | Fait | 05_dashboard.ipynb |

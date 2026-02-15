@@ -1,4 +1,4 @@
-data/rl.duckdb
+data/rl.duckdb*
 __pycache__/
 data/raw/*
 data/processed/*

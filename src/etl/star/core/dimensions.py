@@ -48,7 +48,7 @@ def populate_dim_player() -> int:
         SELECT
             ROW_NUMBER() OVER (ORDER BY p.player_id) AS player_key,
             p.player_id, p.player_tag, p.player_name,
-            p.country_id, c.country_name
+            p.country_id, COALESCE(c.country_name, c.country_id) AS country_name
         FROM player p
         LEFT JOIN country c ON p.country_id = c.country_id
     """, "dim_player")
@@ -60,7 +60,7 @@ def populate_dim_team() -> int:
         INSERT INTO dim_team (team_key, team_id, team_name, region_id, region_name)
         SELECT
             ROW_NUMBER() OVER (ORDER BY t.team_id) AS team_key,
-            t.team_id, t.team_name, t.region_id, r.region_name
+            t.team_id, t.team_name, t.region_id, COALESCE(r.region_name, r.region_id) AS region_name
         FROM team t
         LEFT JOIN region r ON t.region_id = r.region_id
     """, "dim_team")
@@ -108,7 +108,7 @@ def populate_dim_event() -> int:
             s.stage_id, s.stage_name, s.stage_step, s.is_lan, s.is_qualifier,
             s.location_venue, s.location_city, s.location_country,
             e.event_id, e.event_name, e.event_split, e.event_tier, e.event_phase, e.prize_money,
-            r.region_id, r.region_name
+            r.region_id, COALESCE(r.region_name, r.region_id) AS region_name
         FROM match m
         LEFT JOIN stage s ON m.stage_id = s.stage_id
         LEFT JOIN event e ON s.event_id = e.event_id

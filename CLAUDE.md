@@ -159,7 +159,7 @@ CLI: `uv run python -m src.etl.star`
 
 Simple aggregations (3): overtime rate, avg score per player, total games count.
 Cross-measures with charts (4): win rate by car (barh), avg score by event tier (bar), games per month (line), goals by map x color (heatmap).
-Interactive filters (2): event_tier + is_lan (LAN/Online) dropdowns (ipywidgets).
+Interactive filters (2): event_tier + event_region_name dropdowns (ipywidgets).
 CSV export: button → `data/exports/dashboard_export.csv`.
 
 ## Agents
