@@ -87,10 +87,12 @@ notebooks/
 ├── 01_raw_extraction.ipynb    # Extract: Kaggle download + validation
 ├── 02_transform.ipynb         # Transform: normalize to 14 3NF tables
 ├── 03_load.ipynb              # Load: insert into DuckDB + SQL verification
-└── 04_star_schema.ipynb       # Star: 3NF -> star schema + verification + BI queries
+├── 04_star_schema.ipynb       # Star: 3NF -> star schema + verification + BI queries
+└── 05_dashboard.ipynb         # Dashboard BI: 7 KPIs + ipywidgets filters + CSV export
 data/
 ├── raw/                       # 6 raw CSVs from Kaggle (gitignored)
 ├── processed/                 # 14 normalized CSVs (gitignored)
+├── exports/                   # CSV exports from dashboard (gitignored)
 └── rl.duckdb                  # DuckDB database (gitignored)
 docs/
 ├── ateliers/                  # Atelier PDFs + RESUME.md per workshop
@@ -153,12 +155,12 @@ Stat uses polymorphic `entity_id` + `entity_type` (player/team) to link stats at
 Surrogate keys generated via `ROW_NUMBER()`. Stats pivoted from EAV via `MAX(CASE WHEN)`.
 CLI: `uv run python -m src.etl.star`
 
-## KPIs (Workshop 3)
+## KPIs (Workshop 3) — 7 indicators in `05_dashboard.ipynb`
 
-Must implement at least 5 KPIs:
-- 2+ simple aggregations (win rate, average duration, active players)
-- 2+ cross-measures with charts (score by map/car, winrate over time)
-- 2 interactive filters + CSV export
+Simple aggregations (3): overtime rate, avg score per player, total games count.
+Cross-measures with charts (4): win rate by car (barh), avg score by event tier (bar), games per month (line), goals by map x color (heatmap).
+Interactive filters (2): event_tier + is_lan (LAN/Online) dropdowns (ipywidgets).
+CSV export: button → `data/exports/dashboard_export.csv`.
 
 ## Agents
 

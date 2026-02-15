@@ -41,7 +41,7 @@ Architecture serverless, sans backend, conforme aux contraintes de l'atelier.
 | Base de donnees | DuckDB (in-process, via duckdb-engine) |
 | Configuration | python-dotenv (`.env`) |
 | Data | pandas |
-| Visualisation | matplotlib, seaborn |
+| Visualisation | matplotlib, seaborn, ipywidgets |
 | Presentation | Jupyter Notebook |
 
 ## Structure du projet
@@ -64,7 +64,8 @@ Architecture serverless, sans backend, conforme aux contraintes de l'atelier.
 │   ├── 01_raw_extraction.ipynb     # Extraction du dataset Kaggle
 │   ├── 02_transform.ipynb          # Transformation CSV -> 14 tables 3NF
 │   ├── 03_load.ipynb               # Chargement dans DuckDB via ORM
-│   └── 04_star_schema.ipynb        # Star schema (6 dims + 1 fact)
+│   ├── 04_star_schema.ipynb        # Star schema (6 dims + 1 fact)
+│   └── 05_dashboard.ipynb         # Dashboard BI (KPIs + filtres + export)
 ├── src/
 │   ├── config.py                   # ROOT_DIR, DATA_DIR, RAW_DIR, PROCESSED_DIR, DB_PATH
 │   ├── database/
@@ -164,7 +165,8 @@ data/rl.duckdb (+ 7 tables star : 6 dims + 1 fact)
 | **Load** | `src/etl/load/` | Migration Alembic, truncate (idempotent), insertion ORM ou COPY natif DuckDB (configurable via `.env`) |
 | **Star** | `src/etl/star/` | Migration Alembic, truncate star, peuplement 6 dimensions + 1 fact (pivot EAV via SQL) |
 
-Chaque module est executable via notebook (`01`, `02`, `03`, `04`) ou en CLI (`python -m src.etl.extract`, etc.).
+Chaque module est executable via notebook (`01` a `04`) ou en CLI (`python -m src.etl.extract`, etc.).
+Le notebook `05_dashboard.ipynb` exploite le star schema pour la visualisation BI.
 
 ### Configuration du chargement
 
@@ -252,6 +254,8 @@ uv run alembic downgrade -1           # Rollback derniere migration
 
 | Etape | Statut | Detail |
 |-------|--------|--------|
-| 5+ KPIs (2 simples + 2 croisees) | A faire | |
-| 2 filtres interactifs | A faire | |
-| Export CSV | A faire | |
+| KPIs simples (3) | Fait | Taux d'overtime, score moyen/joueur, nombre total de games |
+| KPIs croises (4) | Fait | Win rate/voiture (barh), score/tier (bar), games/mois (line), goals map x couleur (heatmap) |
+| Filtres interactifs (2) | Fait | Dropdowns ipywidgets : event_tier, is_lan (LAN/Online) |
+| Export CSV | Fait | Bouton ipywidgets → `data/exports/dashboard_export.csv` |
+| Notebook | Fait | 05_dashboard.ipynb |
