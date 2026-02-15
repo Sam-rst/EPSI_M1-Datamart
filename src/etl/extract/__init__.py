@@ -1,4 +1,4 @@
-from src.etl.extract.chore import copy_csvs_to_raw, download_dataset, ensure_raw_csvs
+from src.etl.extract.core import copy_csvs_to_raw, download_dataset, ensure_raw_csvs
 from src.etl.extract.config import EXPECTED_FILES, KAGGLE_DATASET, PRIMARY_KEYS, RAW_DIR
 from src.etl.extract.main import run
 from src.etl.extract.utils import (

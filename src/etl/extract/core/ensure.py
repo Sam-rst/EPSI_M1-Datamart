@@ -2,8 +2,8 @@ from pathlib import Path
 
 from src.config import RAW_DIR
 from src.etl.extract.config import MIN_CSV_COUNT
-from src.etl.extract.chore.copy import copy_csvs_to_raw
-from src.etl.extract.chore.download import download_dataset
+from src.etl.extract.core.copy import copy_csvs_to_raw
+from src.etl.extract.core.download import download_dataset
 
 
 def ensure_raw_csvs(raw_dir: Path = RAW_DIR) -> tuple[bool, list[Path]]:

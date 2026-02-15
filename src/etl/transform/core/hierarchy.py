@@ -20,6 +20,7 @@ from src.etl.transform.utils import (
 def build_events(df_main: pd.DataFrame) -> pd.DataFrame:
     """Extract unique events from main.csv."""
     df = rename_columns(df_main, EVENT_COLUMNS)
+    df = df.dropna(subset=["event_id"])
     df["region_id"] = df["region_id"].str.strip().str.upper()
     df = cast_numeric(df, ["prize_money"])
     df = dedup(df, ["event_id"])
@@ -37,6 +38,7 @@ def build_stages(df_main: pd.DataFrame) -> pd.DataFrame:
     stage_cols.update(STAGE_COLUMNS)
     df = rename_columns(df, stage_cols)
 
+    df = df.dropna(subset=["stage_id"])
     df = cast_boolean(df, ["is_lan", "is_qualifier"])
     df = cast_integer(df, ["stage_step"])
     df = dedup(df, ["stage_id"])
@@ -51,6 +53,7 @@ def build_matches(df_main: pd.DataFrame) -> pd.DataFrame:
     match_cols = {**MATCH_COLUMNS, "stage_id": "stage_id"}
     df = rename_columns(df, match_cols)
 
+    df = df.dropna(subset=["match_id"])
     df = cast_boolean(df, ["reverse_sweep_attempt", "reverse_sweep"])
     df = cast_integer(df, ["match_number"])
     df = dedup(df, ["match_id"])
@@ -60,6 +63,7 @@ def build_matches(df_main: pd.DataFrame) -> pd.DataFrame:
 def build_games(df_main: pd.DataFrame) -> pd.DataFrame:
     """Extract unique games from main.csv."""
     df = rename_columns(df_main, GAME_COLUMNS)
+    df = df.dropna(subset=["game_id"])
     df = cast_boolean(df, ["overtime"])
     df = cast_numeric(df, ["game_duration"])
     df = cast_integer(df, ["game_number"])

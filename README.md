@@ -47,22 +47,40 @@ Architecture serverless, sans backend, conforme aux contraintes de l'atelier.
 
 ```
 .
-├── alembic/                    # Migrations Alembic
+├── alembic/                        # Migrations Alembic
 │   ├── env.py
-│   └── versions/               # Fichiers de migration
+│   └── versions/                   # Fichiers de migration
 ├── data/
-│   ├── raw/                    # CSVs bruts (gitignore)
-│   └── rl.duckdb               # Base DuckDB (gitignore)
+│   ├── raw/                        # CSVs bruts Kaggle (gitignore)
+│   ├── processed/                  # CSVs normalises 3NF (gitignore)
+│   └── rl.duckdb                   # Base DuckDB (gitignore)
 ├── docs/
-│   ├── ateliers/               # Consignes et resumes par atelier
-│   └── database/schemas/       # ERD et schemas (mmd, dbml, png, svg)
+│   ├── ateliers/                   # Consignes et resumes par atelier
+│   └── database/schemas/           # ERD et schemas (mmd, dbml, png, svg)
 ├── notebooks/
-│   └── 01_raw_extraction.ipynb # Extraction du dataset Kaggle
+│   ├── 01_raw_extraction.ipynb     # Extraction du dataset Kaggle
+│   ├── 02_transform.ipynb          # Transformation CSV -> 14 tables 3NF
+│   └── 03_load.ipynb               # Chargement dans DuckDB via ORM
 ├── src/
-│   ├── config.py               # Chemins et DATABASE_URL
-│   └── database/
-│       ├── engine.py           # SQLAlchemy engine + SessionLocal
-│       └── models/             # 14 modeles ORM (5 modules)
+│   ├── config.py                   # ROOT_DIR, DATA_DIR, RAW_DIR, PROCESSED_DIR, DB_PATH
+│   ├── database/
+│   │   ├── engine.py               # SQLAlchemy engine + SessionLocal
+│   │   └── models/                 # 14 modeles ORM (5 modules)
+│   └── etl/
+│       ├── main.py                 # Pipeline complet (extract -> transform -> load)
+│       ├── extract/                # Telechargement Kaggle + validation
+│       │   ├── core/               # download, copy, ensure (idempotent)
+│       │   ├── config/             # datasets, primary keys
+│       │   └── utils/              # inventory, validation (PK/nulls)
+│       ├── transform/              # Normalisation CSV bruts -> 14 DataFrames
+│       │   ├── core/               # referentials, entities, hierarchy,
+│       │   │                       # participation, stats (EAV unpivot), export
+│       │   ├── config/             # columns mappings, loading functions
+│       │   └── utils/              # cleaning, mapping
+│       └── load/                   # Insertion DuckDB via ORM
+│           ├── core/               # migrate, truncate, insert (chunked)
+│           ├── config/             # table order (FK-aware), chunk size
+│           └── utils/              # CSV readers
 ├── alembic.ini
 ├── pyproject.toml
 └── uv.lock
@@ -90,6 +108,28 @@ Le schema normalise comprend **14 tables** reparties en 5 groupes :
 - [DBML (dbdiagram.io)](docs/database/schemas/schema_3nf.dbml)
 - [SVG](docs/database/schemas/schema_3nf.svg)
 
+## Pipeline ETL
+
+Le pipeline complet s'execute en 3 etapes, orchestrees par les notebooks ou en CLI :
+
+```
+Kaggle (dylanmonfret/rlcs-202122)
+        | [extract]
+data/raw/ (6 CSVs bruts, ~199k lignes)
+        | [transform]
+data/processed/ (14 CSVs normalises 3NF, ~1.3 Go dont stat.csv)
+        | [load]
+data/rl.duckdb (14 tables, schema 3NF complet)
+```
+
+| Etape | Module | Description |
+|-------|--------|-------------|
+| **Extract** | `src/etl/extract/` | Telechargement Kaggle via kagglehub, copie vers `data/raw/`, validation des PK et nulls |
+| **Transform** | `src/etl/transform/` | Nettoyage, normalisation, deduplication, unpivot EAV (89+ types de stats), export CSV |
+| **Load** | `src/etl/load/` | Migration Alembic, truncate (idempotent), insertion ORM avec chunking (100k lignes/batch) |
+
+Chaque module est executable via notebook (`01`, `02`, `03`) ou en CLI (`python -m src.etl.extract`, etc.).
+
 ## Installation
 
 ### Prerequis
@@ -97,6 +137,7 @@ Le schema normalise comprend **14 tables** reparties en 5 groupes :
 - Python 3.13+
 - [uv](https://docs.astral.sh/uv/)
 - Git
+- Compte Kaggle (pour le telechargement automatique du dataset)
 
 ### Setup
 
@@ -108,27 +149,27 @@ cd EPSI_M1-Datamart
 # 2. Installer les dependances
 uv sync
 
-# 3. Extraire le dataset (notebook ou manuellement depuis Kaggle)
-#    Les CSVs doivent etre dans data/raw/
-
-# 4. Creer le schema et appliquer les migrations
-uv run alembic upgrade head
-```
-
-### Utilisation
-
-```bash
-# Lancer un notebook
+# 3. Pipeline complet (via notebooks ou CLI)
+# Option A : ouvrir les notebooks dans l'ordre (01 -> 02 -> 03)
 jupyter notebook
 
-# Appliquer les migrations
-uv run alembic upgrade head
+# Option B : CLI (pipeline complet)
+uv run python -m src.etl              # Tout en une commande
 
-# Voir l'historique des migrations
-uv run alembic history
+# Option C : CLI (etape par etape)
+uv run python -m src.etl.extract     # Telecharger les CSVs bruts
+uv run python -m src.etl.transform   # Normaliser en 14 tables
+uv run python -m src.etl.load        # Charger dans DuckDB
+```
 
-# Creer une nouvelle migration (manuelle, autogenerate non supporte avec DuckDB)
-uv run alembic revision -m "description"
+### Commandes utiles
+
+```bash
+# Migrations Alembic
+uv run alembic upgrade head           # Appliquer toutes les migrations
+uv run alembic history                # Historique des migrations
+uv run alembic revision -m "msg"      # Nouvelle migration (manuelle)
+uv run alembic downgrade -1           # Rollback derniere migration
 ```
 
 ## Avancement par atelier
@@ -137,10 +178,13 @@ uv run alembic revision -m "description"
 
 | Etape | Statut | Detail |
 |-------|--------|--------|
-| Jeu de donnees | Fait | RLCS 2021-22 via Kaggle (~199k lignes) |
-| Stack technique | Fait | Python 3.13 + uv + DuckDB + Jupyter |
-| Modele relationnel | Fait | 14 tables 3NF, ERD Mermaid + DBML |
-| Chargement des donnees | En cours | Extraction OK, ETL Transform/Load a finir |
+| Jeu de donnees | Fait | RLCS 2021-22 via Kaggle (~199k lignes, 6 CSVs) |
+| Stack technique | Fait | Python 3.13 + uv + DuckDB + SQLAlchemy 2.0 + Jupyter |
+| Modele relationnel | Fait | 14 tables 3NF, ERD Mermaid + DBML + PNG + SVG |
+| ETL Extract | Fait | Telechargement Kaggle, validation PK/nulls, inventaire |
+| ETL Transform | Fait | Normalisation 14 tables, unpivot EAV (89+ stat types), export CSV |
+| ETL Load | Fait | Migration Alembic, insertion ORM chunked, verification SQL |
+| Notebooks | Fait | 01_extract, 02_transform, 03_load — pipeline complet |
 
 ### Atelier 2 — Modele dimensionnel
 

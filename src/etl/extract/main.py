@@ -1,5 +1,5 @@
 from src.config import RAW_DIR
-from src.etl.extract.chore import ensure_raw_csvs
+from src.etl.extract.core import ensure_raw_csvs
 
 
 def run() -> None:

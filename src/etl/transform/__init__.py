@@ -1,4 +1,4 @@
-from src.etl.transform.chore import (
+from src.etl.transform.core import (
     build_cars,
     build_countries,
     build_events,
