@@ -1,7 +1,7 @@
 erDiagram
-    %% ============================================================================
-    %% SCHÉMA ARCHITECTURE DIMENSIONS + STATS CENTRALES
-    %% ============================================================================
+    %% ══════════════════════════════════════
+    %% RÉFÉRENTIELS
+    %% ══════════════════════════════════════
 
     Country {
         TEXT country_id PK
@@ -13,9 +13,22 @@ erDiagram
         TEXT region_name
     }
 
+    Map {
+        TEXT map_id PK
+        TEXT map_name
+    }
+
+    Car {
+        TEXT car_id PK
+        TEXT car_name
+    }
+
+    %% ══════════════════════════════════════
+    %% ENTITÉS PRINCIPALES
+    %% ══════════════════════════════════════
+
     Player {
         TEXT player_id PK
-        TEXT team_id FK
         TEXT player_tag
         TEXT player_name
         TEXT country_id FK
@@ -27,77 +40,130 @@ erDiagram
         TEXT region_id FK
     }
 
-    Score {
-        TEXT score_id PK
-        TEXT team_id FK
-        TEXT match_id FK
-        DOUBLE score
-        BOOLEAN winner
-    }
-
-    Match {
-        TEXT match_id PK
-        TEXT map_id FK
-        TIMESTAMP match_date
-        TEXT match_format
-        TEXT event_id FK
-    }
-
-    Map {
-        TEXT map_id PK
-        TEXT map_name
-    }
+    %% ══════════════════════════════════════
+    %% HIÉRARCHIE : Event → Stage → Match → Game
+    %% ══════════════════════════════════════
 
     Event {
         TEXT event_id PK
         TEXT event_name
-        TEXT region_id FK
+        TEXT event_split
+        TEXT event_slug
+        TIMESTAMP event_start_date
+        TIMESTAMP event_end_date
         TEXT event_tier
+        TEXT event_phase
+        DOUBLE prize_money
+        TEXT region_id FK
     }
 
-    %% === TABLE CENTRALE DE STATS ===
-
-    StatMapping {
-        TEXT stat_id PK
-        TEXT entity_id "player_id/team_id/match_id"
-        TEXT entity_type "player/team/match"
-        TEXT game_id
-        TEXT type_id FK
+    Stage {
+        TEXT stage_id PK
+        TEXT event_id FK
+        TEXT stage_name
+        INTEGER stage_step
+        TIMESTAMP stage_start_date
+        TIMESTAMP stage_end_date
+        BOOLEAN is_lan
+        BOOLEAN is_qualifier
+        TEXT location_venue
+        TEXT location_city
+        TEXT location_country
     }
+
+    Match {
+        TEXT match_id PK
+        TEXT stage_id FK
+        TEXT match_slug
+        INTEGER match_number
+        TEXT match_round
+        TIMESTAMP match_date
+        TEXT match_format
+        BOOLEAN reverse_sweep_attempt
+        BOOLEAN reverse_sweep
+    }
+
+    Game {
+        TEXT game_id PK
+        TEXT match_id FK
+        TEXT map_id FK
+        INTEGER game_number
+        TIMESTAMP game_date
+        DOUBLE game_duration
+        BOOLEAN overtime
+        TEXT ballchasing_id
+    }
+
+    %% ══════════════════════════════════════
+    %% PARTICIPATION (résout Player ↔ Team par game)
+    %% ══════════════════════════════════════
+
+    GameTeam {
+        TEXT game_id PK_FK
+        TEXT team_id PK_FK
+        TEXT color "blue / orange"
+        INTEGER core_goals
+        BOOLEAN winner
+    }
+
+    GamePlayer {
+        TEXT game_id PK_FK
+        TEXT player_id PK_FK
+        TEXT team_id FK
+        TEXT car_id FK
+        TEXT color "blue / orange"
+        BOOLEAN winner
+        TEXT platform
+        TEXT platform_id
+    }
+
+    %% ══════════════════════════════════════
+    %% STATS — POLYMORPHIQUE (Stat → Player, Team, Match)
+    %% ══════════════════════════════════════
 
     Stat {
         TEXT stat_id PK
+        TEXT entity_id "player_id / team_id"
+        TEXT entity_type "player / team"
+        TEXT game_id FK "(nullable — stats game)"
+        TEXT match_id FK "(nullable — stats match)"
         TEXT type_id FK
         DOUBLE stat_value
     }
 
     StatType {
         TEXT type_id PK
-        TEXT name
-        TEXT category "CORE/BOOST/MOVEMENT..."
+        TEXT stat_name
+        TEXT category "CORE/BOOST/MOVEMENT/POSITIONING/DEMO/ADVANCED"
     }
 
-    %% ============================================================================
+    %% ══════════════════════════════════════
     %% RELATIONS
-    %% ============================================================================
+    %% ══════════════════════════════════════
 
+    %% Référentiels
     Country ||--o{ Player : "country_id"
     Region ||--o{ Team : "region_id"
     Region ||--o{ Event : "region_id"
-    
-    Player ||--o{ Team : "team_id"
-    Team ||--o{ Score : "team_id"
-    Match ||--o{ Score : "match_id"
-    Match ||--o{ Map : "map_id"
-    Event ||--o{ Match : "event_id"
 
-    %% Relations vers StatMapping
-    StatMapping ||--o{ Stat : "stat_id"
-    
-    %% Relation Stat → StatType (IMPORTANT!)
-    Stat ||--o{ StatType : "type_id"
+    %% Hiérarchie Event → Stage → Match → Game
+    Event ||--o{ Stage : "event_id"
+    Stage ||--o{ Match : "stage_id"
+    Match ||--o{ Game : "match_id"
+    Map ||--o{ Game : "map_id"
 
-    %% Relations multiples (entity_id peut être player, team, ou match)
-    Player ||--o{ StatMapping : "player_id (entity_id)"
-    Team ||--o{ StatMapping : "team_id (entity_id)"
-    Match ||--o{ StatMapping : "match_id (entity_id)"
+    %% Participation game-level
+    Game ||--o{ GameTeam : "game_id"
+    Team ||--o{ GameTeam : "team_id"
+
+    Game ||--o{ GamePlayer : "game_id"
+    Player ||--o{ GamePlayer : "player_id"
+    Team ||--o{ GamePlayer : "team_id"
+    Car ||--o{ GamePlayer : "car_id"
+
+    %% Relations polymorphiques (Stat → Player, Team, Match, Game)
+    Player ||--o{ Stat : "entity_id (player)"
+    Team ||--o{ Stat : "entity_id (team)"
+    Game ||--o{ Stat : "game_id"
+    Match ||--o{ Stat : "match_id"
+    StatType ||--o{ Stat : "type_id"
