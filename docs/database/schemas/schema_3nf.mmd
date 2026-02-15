@@ -1,0 +1,148 @@
+erDiagram
+    %% ══════════════════════════════════════
+    %% Design polymorphique : nouveau stat = INSERT dans StatType (pas de migration)
+    %% ══════════════════════════════════════
+
+    Event {
+        TEXT event_id PK
+        TEXT event_name
+        TEXT event_split
+        TEXT event_slug
+        TIMESTAMP event_start_date
+        TIMESTAMP event_end_date
+        TEXT event_tier
+        TEXT event_phase
+        DOUBLE prize_money
+        TEXT region_id FK
+    }
+
+    Stage {
+        TEXT stage_id PK
+        TEXT event_id FK
+        TEXT stage_name
+        INTEGER stage_step
+        TIMESTAMP stage_start_date
+        TIMESTAMP stage_end_date
+        BOOLEAN is_lan
+        BOOLEAN is_qualifier
+        TEXT location_venue
+        TEXT location_city
+        TEXT location_country
+    }
+
+    Match {
+        TEXT match_id PK
+        TEXT stage_id FK
+        TEXT match_slug
+        INTEGER match_number
+        TEXT match_round
+        TIMESTAMP match_date
+        TEXT match_format
+        BOOLEAN reverse_sweep_attempt
+        BOOLEAN reverse_sweep
+    }
+
+    Game {
+        TEXT game_id PK
+        TEXT match_id FK
+        TEXT map_id FK
+        INTEGER game_number
+        TIMESTAMP game_date
+        DOUBLE game_duration
+        BOOLEAN overtime
+        TEXT ballchasing_id
+    }
+
+    Player {
+        TEXT player_id PK
+        TEXT player_tag
+        TEXT player_name
+        TEXT country_id FK
+    }
+
+    Team {
+        TEXT team_id PK
+        TEXT team_name
+        TEXT region_id FK
+    }
+
+    GamePlayer {
+        TEXT game_id PK_FK
+        TEXT player_id PK_FK
+        TEXT team_id FK
+        TEXT car_id FK
+        TEXT color "blue / orange"
+        BOOLEAN winner
+        TEXT platform
+        TEXT platform_id
+    }
+
+    GameTeam {
+        TEXT game_id PK_FK
+        TEXT team_id PK_FK
+        TEXT color "blue / orange"
+        BOOLEAN winner
+        INTEGER core_goals "score en buts"
+    }
+
+    StatType {
+        TEXT type_id PK
+        TEXT stat_name "ex: core_shots boost_bpm"
+        TEXT category "CORE BOOST MOVEMENT POSITIONING DEMO ADVANCED"
+    }
+
+    Stat {
+        TEXT stat_id PK
+        TEXT entity_id "player_id / team_id"
+        TEXT entity_type "player / team"
+        TEXT game_id FK "(nullable)"
+        TEXT match_id FK "(nullable)"
+        TEXT type_id FK
+        DOUBLE value
+    }
+
+    Region {
+        TEXT region_id PK
+        TEXT region_name
+    }
+
+    Country {
+        TEXT country_id PK
+        TEXT country_name
+    }
+
+    Map {
+        TEXT map_id PK
+        TEXT map_name
+    }
+
+    Car {
+        TEXT car_id PK
+        TEXT car_name
+    }
+
+    %% Spine
+    Event ||--o{ Stage : "event_id"
+    Stage ||--o{ Match : "stage_id"
+    Match ||--o{ Game : "match_id"
+
+    %% Participation game-level
+    Game ||--o{ GamePlayer : "game_id"
+    Game ||--o{ GameTeam : "game_id"
+    Player ||--o{ GamePlayer : "player_id"
+    Team ||--o{ GamePlayer : "team_id"
+    Team ||--o{ GameTeam : "team_id"
+
+    %% Stat polymorphique → Player, Team, Game, Match
+    Player ||--o{ Stat : "entity_id (player)"
+    Team ||--o{ Stat : "entity_id (team)"
+    Game ||--o{ Stat : "game_id"
+    Match ||--o{ Stat : "match_id"
+    StatType ||--o{ Stat : "type_id"
+
+    %% Référentiels (feuilles)
+    Region ||--o{ Event : "region_id"
+    Region ||--o{ Team : "region_id"
+    Country ||--o{ Player : "country_id"
+    Map ||--o{ Game : "map_id"
+    Car ||--o{ GamePlayer : "car_id"

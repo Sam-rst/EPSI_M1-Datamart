@@ -1,0 +1,179 @@
+// ══════════════════════════════════════
+// Rocket League Esports — Schéma relationnel 3NF
+// Design polymorphique : ajout d'un nouveau stat = INSERT dans StatType (pas de migration)
+// Format : DBML (dbdiagram.io)
+// ══════════════════════════════════════
+
+// ─── RÉFÉRENTIELS ────────────────────
+
+Table Country {
+  country_id VARCHAR [pk]
+  country_name VARCHAR
+}
+
+Table Region {
+  region_id VARCHAR [pk]
+  region_name VARCHAR
+}
+
+Table Map {
+  map_id VARCHAR [pk]
+  map_name VARCHAR
+}
+
+Table Car {
+  car_id VARCHAR [pk]
+  car_name VARCHAR
+}
+
+// ─── ENTITÉS PRINCIPALES ─────────────
+
+Table Player {
+  player_id VARCHAR [pk]
+  player_tag VARCHAR
+  player_name VARCHAR
+  country_id VARCHAR [ref: > Country.country_id]
+}
+
+Table Team {
+  team_id VARCHAR [pk]
+  team_name VARCHAR
+  region_id VARCHAR [ref: > Region.region_id]
+}
+
+// ─── HIÉRARCHIE : Event → Stage → Match → Game ───
+
+Table Event {
+  event_id VARCHAR [pk]
+  event_name VARCHAR
+  event_split VARCHAR
+  event_slug VARCHAR
+  event_start_date TIMESTAMP
+  event_end_date TIMESTAMP
+  event_tier VARCHAR
+  event_phase VARCHAR
+  prize_money DOUBLE
+  region_id VARCHAR [ref: > Region.region_id]
+}
+
+Table Stage {
+  stage_id VARCHAR [pk]
+  event_id VARCHAR [ref: > Event.event_id]
+  stage_name VARCHAR
+  stage_step INTEGER
+  stage_start_date TIMESTAMP
+  stage_end_date TIMESTAMP
+  is_lan BOOLEAN
+  is_qualifier BOOLEAN
+  location_venue VARCHAR
+  location_city VARCHAR
+  location_country VARCHAR
+}
+
+Table Match {
+  match_id VARCHAR [pk]
+  stage_id VARCHAR [ref: > Stage.stage_id]
+  match_slug VARCHAR
+  match_number INTEGER
+  match_round VARCHAR
+  match_date TIMESTAMP
+  match_format VARCHAR
+  reverse_sweep_attempt BOOLEAN
+  reverse_sweep BOOLEAN
+}
+
+Table Game {
+  game_id VARCHAR [pk]
+  match_id VARCHAR [ref: > Match.match_id]
+  map_id VARCHAR [ref: > Map.map_id]
+  game_number INTEGER
+  game_date TIMESTAMP
+  game_duration DOUBLE
+  overtime BOOLEAN
+  ballchasing_id VARCHAR
+}
+
+// ─── PARTICIPATION (métadonnées non-stat, par game) ───
+
+Table GamePlayer {
+  game_id VARCHAR [pk, ref: > Game.game_id]
+  player_id VARCHAR [pk, ref: > Player.player_id]
+  team_id VARCHAR [ref: > Team.team_id]
+  car_id VARCHAR [ref: > Car.car_id]
+  color VARCHAR [note: 'blue / orange']
+  winner BOOLEAN
+  platform VARCHAR
+  platform_id VARCHAR
+  steering_sensitivity DOUBLE
+  camera_fov DOUBLE
+  camera_height DOUBLE
+  camera_pitch DOUBLE
+  camera_distance DOUBLE
+  camera_stiffness DOUBLE
+  camera_swivel_speed DOUBLE
+  camera_transition_speed DOUBLE
+}
+
+Table GameTeam {
+  game_id VARCHAR [pk, ref: > Game.game_id]
+  team_id VARCHAR [pk, ref: > Team.team_id]
+  color VARCHAR [note: 'blue / orange']
+  winner BOOLEAN
+  core_goals INTEGER [note: 'score en buts du game']
+}
+
+// ─── STATS POLYMORPHIQUES (EAV) ──────
+
+Table StatType {
+  type_id VARCHAR [pk]
+  stat_name VARCHAR [unique, not null, note: 'ex: core_shots, boost_bpm, movement_avg_speed']
+  category VARCHAR [not null, note: 'CORE / BOOST / MOVEMENT / POSITIONING / DEMO / ADVANCED']
+}
+
+Table Stat {
+  stat_id VARCHAR [pk]
+  entity_id VARCHAR [not null, note: 'player_id ou team_id']
+  entity_type VARCHAR [not null, note: 'player / team']
+  game_id VARCHAR [not null, ref: > Game.game_id]
+  type_id VARCHAR [not null, ref: > StatType.type_id]
+  value DOUBLE [not null]
+
+  Note: '''
+  Table centrale polymorphique — granularité : 1 stat × 1 entité × 1 game.
+  - entity_type = player → entity_id pointe vers Player
+  - entity_type = team   → entity_id pointe vers Team
+  - Stats match-level = agrégation via Game.match_id (vues SQL)
+  - Nouveau stat ? → INSERT dans StatType, pas de ALTER TABLE
+  '''
+}
+
+// ─── TABLE GROUPS ────────────────────
+
+TableGroup Referentiels {
+  Country
+  Region
+  Map
+  Car
+}
+
+TableGroup Entites {
+  Player
+  Team
+}
+
+TableGroup Hierarchie {
+  Event
+  Stage
+  Match
+  Game
+}
+
+TableGroup Participation {
+  GamePlayer
+  GameTeam
+}
+
+TableGroup Stats {
+  StatType
+  Stat
+}
