@@ -1,233 +1,159 @@
-# 🎯 Projet Atelier 1 — Analyse de parties (Rocket League)
+# Projet Datamart — Rocket League Esports
 
-Ce dépôt contient un projet d'analyse et d'entreposage de données pour des parties de **Rocket League**. L'objectif est de structurer, charger et exploiter des statistiques "in-game" détaillées (mouvement, boost, positionnement, tirs, etc.) afin de pouvoir interroger et visualiser les performances.
+Projet d'analyse et d'entreposage de donnees pour des parties de **Rocket League** (RLCS 2021-22).
+L'objectif est de structurer, charger et exploiter des statistiques in-game detaillees (mouvement, boost, positionnement, tirs, etc.).
 
-## 👥 Équipe
+Pipeline : `CSV (Kaggle) -> Modele relationnel 3NF (DuckDB) -> Schema en etoile -> Dashboard BI`
+
+## Equipe
 
 - **Samuel RESSIOT**
 - **Rudolph ATTISSO**
 - **Yassine ZOUITNI**
 
-## 🛠️ Stack Technique
+## Jeu de donnees
 
-L'architecture est "Serverless" et contenue localement, conformément aux contraintes de l'atelier.
+- **Source** : [RLCS 2021-22 — Kaggle](https://www.kaggle.com/datasets/dylanmonfret/rlcs-202122)
+- **Origine** : donnees extraites d'[octane.gg](https://octane.gg)
+- **Volume** : ~199 000 lignes au total
 
-- **Application :** Python (Jupyter Notebook) pour l'orchestration et la visualisation.
-- **Stockage & Requêtage :** [DuckDB](https://duckdb.org/) (Base de données analytique in-process).
-- **Gestion de version :** Git / GitHub.
+| Fichier | Lignes | Description |
+|---------|--------|-------------|
+| `main.csv` | ~18 700 | Donnees game-level : events, stages, matchs, maps, durations |
+| `games_by_players.csv` | ~106 000 | Stats par joueur par game (shots, goals, saves, boost, movement, positioning, demos) |
+| `games_by_teams.csv` | ~35 500 | Stats agregees par equipe par game |
+| `matches_by_players.csv` | ~26 000 | Stats par joueur par match (agregees) |
+| `matches_by_teams.csv` | ~10 500 | Stats par equipe par match (agregees) |
+| `players_db.csv` | ~1 200 | Registre des joueurs (id, tag, nom, pays) |
 
-## 📊 Le Jeu de Données (présent dans `Atelier1/Data`)
+Colonnes de jointure cles : `game_id`, `match_id`, `player_id`, `team_id`. Couleurs : `blue` / `orange`.
 
-Les fichiers de données fournis avec ce dépôt correspondent à des parties de **Rocket League** (format "in-game" très détaillé). Les fichiers se trouvent dans le répertoire `Atelier1/Data` et couvrent des événements, matchs, parties et métriques par joueur.
+## Stack technique
 
-Fichiers principaux présents :
+Architecture serverless, sans backend, conforme aux contraintes de l'atelier.
 
-- `Atelier1/Data/main.csv` — table centrale d'événements / parties / games (game_id, match_id, timestamps, map, duration, overtime, etc.)
-- `Atelier1/Data/players_db.csv` — référence des joueurs (`player_id`, `player_slug`, `player_tag`, `player_name`, `player_country`)
-- `Atelier1/Data/matches_by_players.csv` — statistiques par joueur pour chaque match (shots, goals, saves, boost, movement, positioning, advanced metrics...)
-- `Atelier1/Data/matches_by_teams.csv` — statistiques agrégées par équipe et match
-- `Atelier1/Data/games_by_players.csv` — granularité partie/joueur (peut être volumineux)
-- `Atelier1/Data/games_by_teams.csv` — granularité partie/équipe
+| Composant | Technologie |
+|-----------|-------------|
+| Langage | Python 3.13 |
+| Gestionnaire de paquets | [uv](https://docs.astral.sh/uv/) |
+| ORM | SQLAlchemy 2.0 (DeclarativeBase, mapped_column) |
+| Migrations | Alembic |
+| Base de donnees | DuckDB (in-process, via duckdb-engine) |
+| Data | pandas |
+| Visualisation | matplotlib, seaborn |
+| Presentation | Jupyter Notebook |
 
-Caractéristiques clés :
+## Structure du projet
 
-- Granularité "in-game" : boost, puissance, temps supersonic, positionnement moyen par rapport à la balle, tirs, buts, assists, saves, etc.
-- Volumétrie : plusieurs fichiers contiennent des dizaines de milliers de lignes (certaines vues `games_by_players.csv` sont volumineuses >50MB).
-- Format : CSV, encodage UTF-8 (séparateur `,`).
+```
+.
+├── alembic/                    # Migrations Alembic
+│   ├── env.py
+│   └── versions/               # Fichiers de migration
+├── data/
+│   ├── raw/                    # CSVs bruts (gitignore)
+│   └── rl.duckdb               # Base DuckDB (gitignore)
+├── docs/
+│   ├── ateliers/               # Consignes et resumes par atelier
+│   └── database/schemas/       # ERD et schemas (mmd, dbml, png, svg)
+├── notebooks/
+│   └── 01_raw_extraction.ipynb # Extraction du dataset Kaggle
+├── src/
+│   ├── config.py               # Chemins et DATABASE_URL
+│   └── database/
+│       ├── engine.py           # SQLAlchemy engine + SessionLocal
+│       └── models/             # 14 modeles ORM (5 modules)
+├── alembic.ini
+├── pyproject.toml
+└── uv.lock
+```
 
-Si vous avez une source en ligne pour ce dataset, ajoutez le lien ci‑dessous, sinon nous considérons le dataset comme inclus localement dans le dépôt.
+## Modele relationnel (3NF) — Atelier 1
 
-- **Source / Lien vers le dataset :** (dataset inclus localement — ajouter un lien ici si vous en disposez)
+Le schema normalise comprend **14 tables** reparties en 5 groupes :
 
-## 🗄️ Schéma Relationnel
+| Groupe | Tables | Description |
+|--------|--------|-------------|
+| Referentiels | Country, Region, Map, Car | Lookups sans dependances |
+| Entites | Player, Team | Acteurs principaux |
+| Hierarchie | Event > Stage > Match > Game | Decomposition des competitions |
+| Participation | GamePlayer, GameTeam | Liens game-level (couleur, winner, camera settings) |
+| Stats (EAV) | StatType, Stat | Stats polymorphiques (entity_type = player/team) |
 
-### ⭐ Schéma Final — **Validé par le formateur**
+**Architecture polymorphique (EAV)** : la table `Stat` utilise `entity_id` + `entity_type` pour pointer vers Player ou Team. Ajouter une nouvelle statistique = `INSERT` dans `StatType`, pas de migration de schema.
 
-Le schéma utilise une **architecture normalisée** avec dimensions essentielles et une table de mapping centrale pour les statistiques :
+### ERD
 
-**8 Dimensions**:
+![Schema 3NF](docs/database/schemas/schema_3nf.png)
 
-- `Country` — Pays (évite doublons)
-- `Region` — Régions géographiques (évite doublons)
-- `Player` — Joueurs avec `country_id` FK
-- `Team` — Équipes avec `region_id` FK
-- `Event` — Événements eSport avec `region_id` FK
-- `Match` — Matchs avec `event_id`, `map_id` FK
-- `Map` — Cartes de jeu
-- `Score` — Scores par équipe/match avec résultat
+- [Source Mermaid](docs/database/schemas/schema_3nf.mmd)
+- [DBML (dbdiagram.io)](docs/database/schemas/schema_3nf.dbml)
+- [SVG](docs/database/schemas/schema_3nf.svg)
 
-**Tables de Stats (centrale + lookup)**:
+## Installation
 
-- `StatMapping` — Table centrale polymorphe (entity_id + entity_type)
-- `Stat` — Valeurs statistiques (stat_value, type_id FK)
-- `StatType` — Types de stats (name, category)
+### Prerequis
 
-**Architecture polymorphe:**
+- Python 3.13+
+- [uv](https://docs.astral.sh/uv/)
+- Git
 
-- `entity_type` = 'player' | 'team' | 'match'
-- Permet de lier stats à différentes entités via une seule table
-- `StatMapping` → `Stat` → `StatType`
-
-**Avantages:**
-
-- ✅ Normalisation complète (Country, Region)
-- ✅ Zéro redondance géographique
-- ✅ Architecture flexible et scalable
-- ✅ Relations polymorphes pour extensibilité
-
-### 📊 Fichiers du Schéma
-
-**⭐ Schéma Validé**:
-
-- 🖼️ [Image PNG](docs/schema_final.png) — Diagramme ER avec 8 dimensions + stat mapping
-- 💾 [DDL SQL](sql/schema_final.sql) — Schéma complet avec contraintes FK
-- 📊 [Code Mermaid](docs/schema_final.mmd) — Source du diagramme
-
----
-
-## 🚀 Installation et Utilisation
-
-### 📦 Prérequis
-
-- **Python 3.11+**
-- **Git**
-- Gestionnaire de packages Python (pip ou uv)
-
-### 1️⃣ Installation
-
-1. **Cloner le dépôt** :
-
-   ```bash
-   git clone https://github.com/Sam-rst/EPSI_M1-Datamart
-   cd EPSI_M1-Datamart
-   ```
-
-2. **Créer l'environnement virtuel** :
-
-   ```bash
-   # Avec uv (recommandé)
-   uv sync
-   
-   # Ou avec pip
-   python -m venv .venv
-   .venv\Scripts\activate  # Windows
-   pip install -r requirements.txt
-   ```
-
-3. **Activer l'environnement** :
-
-   ```bash
-   # Windows
-   .venv\Scripts\activate
-   
-   # Linux/Mac
-   source .venv/bin/activate
-   ```
-
-### 2️⃣ Création de la Base de Données et Import des Données
-
-**⚠️ ÉTAPE OBLIGATOIRE** : Avant toute analyse, vous devez créer la base DuckDB et importer les données CSV.
-
-#### 📥 Script d'ingestion : `ingest_duckdb.py`
-
-Ce script crée automatiquement la base `data/rl.duckdb` et importe les 6 fichiers CSV (199,117 lignes au total).
+### Setup
 
 ```bash
-# Assurez-vous d'être dans le répertoire racine du projet
-python scripts/ingest_duckdb.py
+# 1. Cloner le depot
+git clone https://github.com/Sam-rst/EPSI_M1-Datamart
+cd EPSI_M1-Datamart
+
+# 2. Installer les dependances
+uv sync
+
+# 3. Extraire le dataset (notebook ou manuellement depuis Kaggle)
+#    Les CSVs doivent etre dans data/raw/
+
+# 4. Creer le schema et appliquer les migrations
+uv run alembic upgrade head
 ```
 
-**Sortie attendue** :
-```
-🚀 Ingestion des données dans DuckDB...
-   Base de données : data/rl.duckdb
-
-✓ Table players_db créée : 1,218 lignes
-✓ Table main créée : 18,740 lignes
-✓ Table games_by_players créée : 106,795 lignes
-✓ Table games_by_teams créée : 35,594 lignes
-✓ Table matches_by_players créée : 26,176 lignes
-✓ Table matches_by_teams créée : 10,594 lignes
-
-✅ Ingestion terminée avec succès !
-   Total : 199,117 lignes importées
-   Taille de la base : 49.51 MB
-```
-
-**Fichier créé** : `data/rl.duckdb` (49.51 MB)
-
-#### ✅ Vérification de l'import
-
-Pour vérifier que les données sont bien chargées :
+### Utilisation
 
 ```bash
-python scripts/validate_db.py
+# Lancer un notebook
+jupyter notebook
+
+# Appliquer les migrations
+uv run alembic upgrade head
+
+# Voir l'historique des migrations
+uv run alembic history
+
+# Creer une nouvelle migration (manuelle, autogenerate non supporte avec DuckDB)
+uv run alembic revision -m "description"
 ```
 
-**Sortie attendue** :
-```
-📊 Validation de la base DuckDB...
+## Avancement par atelier
 
-✓ players_db : 1,218 lignes
-✓ main : 18,740 lignes
-✓ games_by_players : 106,795 lignes
-✓ games_by_teams : 35,594 lignes
-✓ matches_by_players : 26,176 lignes
-✓ matches_by_teams : 10,594 lignes
+### Atelier 1 — Statistiques de parties
 
-✅ Base validée : 199,117 lignes au total
-```
+| Etape | Statut | Detail |
+|-------|--------|--------|
+| Jeu de donnees | Fait | RLCS 2021-22 via Kaggle (~199k lignes) |
+| Stack technique | Fait | Python 3.13 + uv + DuckDB + Jupyter |
+| Modele relationnel | Fait | 14 tables 3NF, ERD Mermaid + DBML |
+| Chargement des donnees | En cours | Extraction OK, ETL Transform/Load a finir |
 
-### 3️⃣ Autres Scripts Disponibles
+### Atelier 2 — Modele dimensionnel
 
-#### 🔍 Inspection du dataset
+| Etape | Statut | Detail |
+|-------|--------|--------|
+| Schema en etoile | A faire | fact_game_stats + dimensions |
+| Alimentation des dimensions | A faire | Script Python/SQL |
+| Remplissage des faits | A faire | Script Python/SQL |
 
-Pour analyser les fichiers CSV avant import :
+### Atelier 3 — Visualisation
 
-```bash
-python scripts/inspect_dataset.py
-```
-
-Affiche :
-- Nombre de lignes par fichier
-- Colonnes et types de données
-- Aperçu des premières lignes
-- Statistiques de volumétrie
-
-#### 📊 Export du schéma
-
-Pour générer le diagramme PNG du schéma relationnel :
-
-```bash
-python scripts/export_schema_final.py
-```
-
-Génère : `docs/schema_final.png`
-
-### 4️⃣ Utilisation du Notebook
-
-Une fois la base créée, ouvrez le notebook d'exploration :
-
-```bash
-# Lancer Jupyter
-jupyter notebook notebooks/step1_dataset_exploration.ipynb
-```
-
-**Contenu du notebook** :
-- ✅ Description du dataset
-- ✅ Inventaire des fichiers CSV
-- ✅ Vérification de la base DuckDB
-- ✅ Requêtes d'analyse (top joueurs, plateformes, etc.)
-
-### 5️⃣ Visualisation avec DBeaver (Optionnel)
-
-Pour explorer la base graphiquement :
-
-1. **Télécharger DBeaver** : https://dbeaver.io/download/
-2. **Créer une connexion DuckDB** :
-   - Nouvelle connexion → DuckDB
-   - Path : `C:\Users\<votre_user>\...\EPSI_M1-Datamart\data\rl.duckdb`
-   - Test Connection → Finish
-3. **Explorer les tables** : 6 tables disponibles avec 199K lignes
-
-⚠️ **Important** : Fermez DBeaver avant d'exécuter des scripts Python qui modifient la base (problème de verrouillage de fichier).
+| Etape | Statut | Detail |
+|-------|--------|--------|
+| 5+ KPIs (2 simples + 2 croisees) | A faire | |
+| 2 filtres interactifs | A faire | |
+| Export CSV | A faire | |

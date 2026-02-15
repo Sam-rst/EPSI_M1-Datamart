@@ -95,8 +95,7 @@ erDiagram
         TEXT stat_id PK
         TEXT entity_id "player_id / team_id"
         TEXT entity_type "player / team"
-        TEXT game_id FK "(nullable)"
-        TEXT match_id FK "(nullable)"
+        TEXT game_id FK
         TEXT type_id FK
         DOUBLE value
     }
@@ -133,11 +132,10 @@ erDiagram
     Team ||--o{ GamePlayer : "team_id"
     Team ||--o{ GameTeam : "team_id"
 
-    %% Stat polymorphique → Player, Team, Game, Match
+    %% Stat polymorphique → Player, Team, Game
     Player ||--o{ Stat : "entity_id (player)"
     Team ||--o{ Stat : "entity_id (team)"
     Game ||--o{ Stat : "game_id"
-    Match ||--o{ Stat : "match_id"
     StatType ||--o{ Stat : "type_id"
 
     %% Référentiels (feuilles)
