@@ -1,1 +1,4 @@
-data/valorant.db
+data/rl.duckdb
+__pycache__/
+data/raw/*
+data/processed/*
